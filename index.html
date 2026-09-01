@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex sessions</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><div><p class="eyebrow">CODEX / SESSION HISTORY</p><h1>Session timeline</h1><p class="sub">Every session, in context.</p></div>
+    <div class="controls"><button id="prev" aria-label="Previous date">←</button><button id="today">Today</button><button id="next" aria-label="Next date">→</button><label>Date <input id="date" type="date"></label></div>
+  </header>
+  <main><section class="summary"><span id="day-label"></span><span id="count"></span></section><section id="timeline" class="timeline" aria-label="Session timeline"></section></main>
+  <div id="tip" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
