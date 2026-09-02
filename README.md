@@ -4,7 +4,6 @@ Codex Session Timeline is a small, dependency-free web app for exploring Codex s
 
 ![Session timeline showing two overlapping sample sessions](assets/timeline-overlap.png)
 
-The screenshot uses fabricated data: “Design review” runs from 09:30–11:15 and “API integration” runs from 10:15–12:00.
 
 ## Run locally
 
@@ -19,8 +18,7 @@ Run the extractor and webserver together:
 Open [http://localhost:8000](http://localhost:8000).
 
 By default, `app.py` extracts sessions and starts the webserver. Use
-`--no-extract` to only start the server, or `--no-server` to only generate
-`sessions.json`.
+`--only-extract` to only generate `sessions.json`, or `--only-server` to only run the webserver.
 
 All command-line options supported by `python3 -m http.server` are passed
 through, including `--bind`, `--directory`, `--cgi`, and `--protocol`.
