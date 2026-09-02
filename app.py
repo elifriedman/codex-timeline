@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Create the JSON data consumed by the Codex session timeline."""
+"""Extract Codex sessions and optionally serve the timeline application."""
 from __future__ import annotations
 
 import argparse
 import json
+import runpy
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -80,14 +82,24 @@ def extract(index_path: Path, sessions_dir: Path) -> list[dict[str, str]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--only-extract", action="store_true")
+    parser.add_argument("--only-server", action="store_true")
     parser.add_argument("--index", type=Path, default=Path("~/.codex/session_index.jsonl").expanduser())
     parser.add_argument("--sessions", type=Path, default=Path("~/.codex/sessions").expanduser())
     parser.add_argument("--output", type=Path, default=Path("sessions.json"))
-    args = parser.parse_args()
-    data = extract(args.index, args.sessions)
-    args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {len(data)} sessions to {args.output}")
+    args, server_args = parser.parse_known_args()
+
+    run_all = args.only_extract is False and args.only_server is False
+    if args.only_extract or run_all:
+        data = extract(args.index, args.sessions)
+        args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {len(data)} sessions to {args.output}")
+
+    if args.only_server or run_all:
+        sys.argv[1:] = server_args
+        # Run the module's own CLI so its full set of options stays supported.
+        runpy.run_module("http.server", run_name="__main__")
 
 
 if __name__ == "__main__":
