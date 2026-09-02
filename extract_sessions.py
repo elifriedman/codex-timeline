@@ -81,8 +81,8 @@ def extract(index_path: Path, sessions_dir: Path) -> list[dict[str, str]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--index", type=Path, default=Path("codex-sessions/session_index.jsonl"))
-    parser.add_argument("--sessions", type=Path, default=Path("codex-sessions"))
+    parser.add_argument("--index", type=Path, default=Path("~/.codex/session_index.jsonl").expanduser())
+    parser.add_argument("--sessions", type=Path, default=Path("~/.codex/sessions").expanduser())
     parser.add_argument("--output", type=Path, default=Path("sessions.json"))
     args = parser.parse_args()
     data = extract(args.index, args.sessions)
