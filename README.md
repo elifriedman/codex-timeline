@@ -17,6 +17,24 @@ Run the extractor and webserver together:
 
 Open [http://localhost:8000](http://localhost:8000).
 
+Install the optional AI summarizer dependencies with:
+
+   ```bash
+   python3 -m pip install -r requirements.txt
+   ```
+
+Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `OPENAI_BASE_URL` can
+point to an alternate OpenAI-compatible API domain; it should include the API
+path, such as `/v1`. Generate summaries during extraction with:
+
+   ```bash
+   python3 app.py --summarize 8000
+   ```
+
+Without `--summarize`, session content is not sent to an API. If a transcript
+is larger than `OPENAI_SUMMARY_MAX_CHARS` (60,000 characters by default), the
+summarizer sends only the user's messages and clips that text to the limit.
+
 By default, `app.py` extracts sessions and starts the webserver. Use
 `--only-extract` to only generate `sessions.json`, or `--only-server` to only run the webserver.
 
@@ -33,12 +51,12 @@ The browser loads `sessions.json` with `fetch`, so opening `index.html` directly
 
 ## How it works
 
-- `app.py` scans the Codex session index and JSONL files, groups activity into sessions, writes `sessions.json`, and serves the app.
+- `app.py` scans the Codex session index and JSONL files, groups activity into sessions, optionally generates AI summaries, writes `sessions.json`, and serves the app.
 - `index.html` defines the page structure and date controls.
-- `app.js` groups sessions by date, calculates overlapping lanes, and renders the timeline.
-- `style.css` provides the layout, colors, responsive behavior, and hover details.
+- `app.js` groups sessions by date, calculates overlapping lanes, renders the timeline, and opens summary details in a sidebar when a session is selected.
+- `style.css` provides the layout, colors, responsive behavior, hover details, and sidebar.
 
-Use the date field or the previous/next buttons to move between dates. Hover over a session block to see its title, start and end times, and duration.
+Use the date field or the previous/next buttons to move between dates. Hover over a session block to see its title, start and end times, and duration. Click a block to open its AI summary; blocks extracted without `--summarize` show an unavailable message instead.
 
 ## Notes
 
