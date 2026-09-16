@@ -3,3 +3,5 @@
 codex-sessions
 *sessions.json
 .env
+summary_cache.json
+.summary_cache.json.*

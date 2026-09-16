@@ -9,10 +9,10 @@
     <div class="controls"><button id="prev" aria-label="Previous date">←</button><button id="today">Today</button><button id="next" aria-label="Next date">→</button><label>Date <input id="date" type="date"></label></div>
   </header>
   <main><section class="summary"><span id="day-label"></span><span id="count"></span></section><section id="timeline" class="timeline" aria-label="Session timeline"></section></main>
-  <button id="details-backdrop" class="details-backdrop" type="button" tabindex="-1" aria-label="Close session details"></button>
   <aside id="details" class="details" inert aria-hidden="true" aria-labelledby="details-title">
     <div class="details-header"><div><p class="eyebrow">SESSION DETAILS</p><h2 id="details-title">Session</h2></div><button id="details-close" class="details-close" type="button" aria-label="Close session details">×</button></div>
     <p id="details-meta" class="details-meta"></p>
+    <div class="details-section project-section"><p class="details-label">Project folder</p><p id="details-project" class="details-project"></p></div>
     <div class="details-section"><p class="details-label">AI summary</p><ul id="summary-list" class="summary-list"></ul><p id="summary-empty" class="summary-empty">No AI summary is available for this session.</p></div>
   </aside>
   <div id="tip" role="status"></div>

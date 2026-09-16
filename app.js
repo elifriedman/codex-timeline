@@ -8,9 +8,14 @@ const tip = document.querySelector('#tip');
 const details = document.querySelector('#details');
 const detailsTitle = document.querySelector('#details-title');
 const detailsMeta = document.querySelector('#details-meta');
+const detailsProject = document.querySelector('#details-project');
 const summaryList = document.querySelector('#summary-list');
 const summaryEmpty = document.querySelector('#summary-empty');
-const detailsBackdrop = document.querySelector('#details-backdrop');
+
+const PROJECT_COLORS = [
+  '#9f4936', '#326e9b', '#5a5598', '#2c7863', '#995a2d',
+  '#933d64', '#456d7c', '#765f2c', '#4f7139', '#704d85',
+];
 
 let sessions = [];
 let dates = [];
@@ -37,12 +42,20 @@ function info(session) {
   const duration = new Date(session.end) - new Date(session.start);
   const hours = Math.floor(duration / 3600000);
   const minutes = Math.round(duration % 3600000 / 60000);
-  return `${session.title} · ${time(session.start)}–${time(session.end)} (${hours ? `${hours}h ` : ''}${minutes}m)`;
+  const project = session.project || 'Unknown project';
+  return `${session.title} · ${project} · ${time(session.start)}–${time(session.end)} (${hours ? `${hours}h ` : ''}${minutes}m)`;
+}
+
+function projectColor(session) {
+  const value = String(session.project_key || session.project || 'unknown');
+  let hash = 0;
+  for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return PROJECT_COLORS[hash % PROJECT_COLORS.length];
 }
 
 function closeDetails() {
+  document.body.classList.remove('details-open');
   details.classList.remove('open');
-  detailsBackdrop.classList.remove('open');
   details.setAttribute('inert', '');
   details.setAttribute('aria-hidden', 'true');
   document.querySelectorAll('.session.selected').forEach(session => session.classList.remove('selected'));
@@ -53,6 +66,7 @@ function closeDetails() {
 function openDetails(session, element) {
   detailsTitle.textContent = session.title;
   detailsMeta.textContent = info(session);
+  detailsProject.textContent = session.project_path || session.project || 'Unknown project';
   summaryList.replaceChildren();
 
   const summary = Array.isArray(session.summary) ? session.summary : [];
@@ -67,7 +81,7 @@ function openDetails(session, element) {
   lastFocusedSession = element;
   element.classList.add('selected');
   details.classList.add('open');
-  detailsBackdrop.classList.add('open');
+  document.body.classList.add('details-open');
   details.removeAttribute('inert');
   details.setAttribute('aria-hidden', 'false');
   document.querySelector('#details-close').focus();
@@ -78,6 +92,7 @@ function addBar(session, date, track, lane, total) {
   const end = Math.min(date.getTime() + DAY, new Date(session.end));
   const bar = document.createElement('div');
   bar.className = 'session';
+  bar.style.setProperty('--project-color', projectColor(session));
   bar.style.top = `${(start - date) / SLOT * ROW + 3}px`;
   bar.style.height = `${Math.max((end - start) / SLOT * ROW - 6, 18)}px`;
   bar.style.left = `calc(${lane * 100 / total}% + 8px)`;
@@ -156,7 +171,6 @@ function jump(value) {
 }
 
 document.querySelector('#details-close').onclick = closeDetails;
-detailsBackdrop.onclick = closeDetails;
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && details.classList.contains('open')) closeDetails();
 });
