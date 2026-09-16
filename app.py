@@ -552,9 +552,11 @@ def extract(
         if segments:
             messages_by_segment = _messages_by_segment(messages, segments)
             project_name, project_key, project_path = _project_metadata(payload)
+            parent_id = payload.get("parent_thread_id")
+            if parent_id is not None:
+                parent_id = str(parent_id)
             title = names.get(session_id)
             if title is None:
-                parent_id = payload.get("parent_thread_id")
                 title = names.get(parent_id, "Unindexed session")
                 source = payload.get("source") or {}
                 subagent = source.get("subagent") if isinstance(source, dict) else None
@@ -576,6 +578,7 @@ def extract(
                     "project": project_name,
                     "project_key": project_key,
                     "project_path": project_path,
+                    "parent_id": parent_id,
                     "segments": [
                         {"events": segment, "messages": segment_messages}
                         for segment, segment_messages in zip(
@@ -673,6 +676,7 @@ def extract(
                 "project": data["project"],
                 "project_key": data["project_key"],
                 "project_path": data["project_path"],
+                "parent_id": data["parent_id"],
                 "start": timestamp(segment["events"][0]),
                 "end": timestamp(segment["events"][-1]),
             }

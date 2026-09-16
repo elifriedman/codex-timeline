@@ -1,6 +1,11 @@
 const DAY = 86400000;
 const SLOT = 900000;
 const ROW = 30;
+const SESSION_INSET = 3;
+const SESSION_GAP = 6;
+const MIN_SESSION_HEIGHT = 18;
+const COMPACT_MARKER_HEIGHT = 6;
+const COMPACT_SESSION_THRESHOLD = ((MIN_SESSION_HEIGHT + SESSION_GAP) / ROW) * SLOT;
 
 const timeline = document.querySelector('#timeline');
 const dateInput = document.querySelector('#date');
@@ -37,6 +42,34 @@ const time = value => new Date(value).toLocaleTimeString([], {
   hour: '2-digit',
   minute: '2-digit',
 });
+
+const rootId = value => String(value || '').split('#segment-', 1)[0];
+
+function sessionDuration(session) {
+  return Math.max(0, new Date(session.end) - new Date(session.start));
+}
+
+function barGeometry(session, date, next) {
+  const start = Math.max(date.getTime(), new Date(session.start).getTime());
+  const end = Math.min(next.getTime(), new Date(session.end).getTime());
+  const clippedDuration = Math.max(0, end - start);
+  const compact = sessionDuration(session) < COMPACT_SESSION_THRESHOLD;
+  const top = compact
+    ? (start - date.getTime()) / SLOT * ROW - COMPACT_MARKER_HEIGHT
+    : (start - date.getTime()) / SLOT * ROW + SESSION_INSET;
+  const height = compact
+    ? MIN_SESSION_HEIGHT
+    : Math.max(clippedDuration / SLOT * ROW - SESSION_GAP, MIN_SESSION_HEIGHT);
+  const pixelsToMilliseconds = SLOT / ROW;
+
+  return {
+    compact,
+    top,
+    height,
+    layoutStart: date.getTime() + top * pixelsToMilliseconds,
+    layoutEnd: date.getTime() + (top + height) * pixelsToMilliseconds,
+  };
+}
 
 function info(session) {
   const duration = new Date(session.end) - new Date(session.start);
@@ -87,18 +120,18 @@ function openDetails(session, element) {
   document.querySelector('#details-close').focus();
 }
 
-function addBar(session, date, track, lane, total) {
-  const start = Math.max(date.getTime(), new Date(session.start));
-  const end = Math.min(date.getTime() + DAY, new Date(session.end));
+function addBar(session, track, lane, total, geometry) {
   const bar = document.createElement('div');
   bar.className = 'session';
+  if (geometry.compact) bar.classList.add('compact');
   bar.style.setProperty('--project-color', projectColor(session));
-  bar.style.top = `${(start - date) / SLOT * ROW + 3}px`;
-  bar.style.height = `${Math.max((end - start) / SLOT * ROW - 6, 18)}px`;
+  bar.style.top = `${geometry.top}px`;
+  bar.style.height = `${geometry.height}px`;
   bar.style.left = `calc(${lane * 100 / total}% + 8px)`;
   bar.style.width = `calc(${100 / total}% - 16px)`;
   bar.textContent = session.title;
   bar.title = info(session);
+  bar.setAttribute('aria-label', info(session));
   bar.setAttribute('role', 'button');
   bar.tabIndex = 0;
 
@@ -143,21 +176,60 @@ function addDay(value) {
 
   const visible = sessions.filter(session => new Date(session.start) < next && new Date(session.end) >= date);
   const lanes = [];
-  visible
-    .sort((a, b) => new Date(a.start) - new Date(b.start))
-    .forEach(session => {
-      const start = Math.max(date.getTime(), new Date(session.start));
-      const end = Math.min(next.getTime(), new Date(session.end));
-      let lane = lanes.findIndex(laneEnd => laneEnd <= start);
-      if (lane < 0) {
-        lane = lanes.length;
-        lanes.push(end);
-      } else {
-        lanes[lane] = end;
+  const lanesByRoot = new Map();
+  const visibleSessionsByRoot = new Map();
+  visible.forEach(session => {
+    const root = rootId(session.id);
+    if (!visibleSessionsByRoot.has(root)) visibleSessionsByRoot.set(root, session);
+  });
+  const depthOf = session => {
+    let depth = 0;
+    let current = session;
+    const seen = new Set();
+    while (current.parent_id) {
+      const parentRoot = rootId(current.parent_id);
+      if (seen.has(parentRoot)) break;
+      seen.add(parentRoot);
+      current = visibleSessionsByRoot.get(parentRoot);
+      if (!current) break;
+      depth += 1;
+    }
+    return depth;
+  };
+  const ordered = [...visible].sort((a, b) => {
+    const depthDifference = depthOf(a) - depthOf(b);
+    if (depthDifference) return depthDifference;
+    const startDifference = new Date(a.start) - new Date(b.start);
+    return startDifference || String(a.id).localeCompare(String(b.id));
+  });
+  const layouts = new Map();
+  ordered.forEach(session => {
+    const geometry = barGeometry(session, date, next);
+    const parentRoot = session.parent_id ? rootId(session.parent_id) : null;
+    const parentLanes = parentRoot ? lanesByRoot.get(parentRoot) || [] : [];
+    const minimumLane = parentLanes.length ? Math.max(...parentLanes) + 1 : 0;
+    let lane = -1;
+    for (let candidate = minimumLane; candidate < lanes.length; candidate += 1) {
+      if (lanes[candidate] === null || lanes[candidate] <= geometry.layoutStart) {
+        lane = candidate;
+        break;
       }
-      session._lane = lane;
-    });
-  visible.forEach(session => addBar(session, date, track, session._lane, lanes.length));
+    }
+    if (lane < 0) {
+      lane = Math.max(minimumLane, lanes.length);
+      while (lanes.length <= lane) lanes.push(null);
+    }
+    lanes[lane] = geometry.layoutEnd;
+    layouts.set(session.id, { geometry, lane });
+    const root = rootId(session.id);
+    const assignedLanes = lanesByRoot.get(root) || [];
+    if (!assignedLanes.includes(lane)) assignedLanes.push(lane);
+    lanesByRoot.set(root, assignedLanes);
+  });
+  ordered.forEach(session => {
+    const layout = layouts.get(session.id);
+    addBar(session, track, layout.lane, lanes.length || 1, layout.geometry);
+  });
 
   body.append(track);
   block.append(body);
