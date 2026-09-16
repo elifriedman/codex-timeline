@@ -49,11 +49,19 @@ function sessionDuration(session) {
   return Math.max(0, new Date(session.end) - new Date(session.start));
 }
 
-function barGeometry(session, date, next) {
-  const start = Math.max(date.getTime(), new Date(session.start).getTime());
-  const end = Math.min(next.getTime(), new Date(session.end).getTime());
+function sessionInterval(session, date, next) {
+  return {
+    start: Math.max(date.getTime(), new Date(session.start).getTime()),
+    end: Math.min(next.getTime(), new Date(session.end).getTime()),
+  };
+}
+
+function barGeometry(session, date, next, marker = false) {
+  const interval = sessionInterval(session, date, next);
+  const start = interval.start;
+  const end = interval.end;
   const clippedDuration = Math.max(0, end - start);
-  const compact = sessionDuration(session) < COMPACT_SESSION_THRESHOLD;
+  const compact = marker && sessionDuration(session) < COMPACT_SESSION_THRESHOLD;
   const top = compact
     ? (start - date.getTime()) / SLOT * ROW - COMPACT_MARKER_HEIGHT
     : (start - date.getTime()) / SLOT * ROW + SESSION_INSET;
@@ -130,7 +138,6 @@ function addBar(session, track, lane, total, geometry) {
   bar.style.left = `calc(${lane * 100 / total}% + 8px)`;
   bar.style.width = `calc(${100 / total}% - 16px)`;
   bar.textContent = session.title;
-  bar.title = info(session);
   bar.setAttribute('aria-label', info(session));
   bar.setAttribute('role', 'button');
   bar.tabIndex = 0;
@@ -175,7 +182,7 @@ function addDay(value) {
   }
 
   const visible = sessions.filter(session => new Date(session.start) < next && new Date(session.end) >= date);
-  const lanes = [];
+  const visibleById = new Map(visible.map(session => [session.id, session]));
   const lanesByRoot = new Map();
   const visibleSessionsByRoot = new Map();
   visible.forEach(session => {
@@ -203,32 +210,70 @@ function addDay(value) {
     return startDifference || String(a.id).localeCompare(String(b.id));
   });
   const layouts = new Map();
+  const lanes = [];
+  const intervalsOverlap = (first, second) => (
+    first.start < second.end && second.start < first.end
+  );
   ordered.forEach(session => {
-    const geometry = barGeometry(session, date, next);
+    const interval = sessionInterval(session, date, next);
     const parentRoot = session.parent_id ? rootId(session.parent_id) : null;
     const parentLanes = parentRoot ? lanesByRoot.get(parentRoot) || [] : [];
     const minimumLane = parentLanes.length ? Math.max(...parentLanes) + 1 : 0;
     let lane = -1;
     for (let candidate = minimumLane; candidate < lanes.length; candidate += 1) {
-      if (lanes[candidate] === null || lanes[candidate] <= geometry.layoutStart) {
+      const occupied = lanes[candidate].some(existing => intervalsOverlap(existing, interval));
+      if (!occupied) {
         lane = candidate;
         break;
       }
     }
     if (lane < 0) {
       lane = Math.max(minimumLane, lanes.length);
-      while (lanes.length <= lane) lanes.push(null);
+      while (lanes.length <= lane) lanes.push([]);
     }
-    lanes[lane] = geometry.layoutEnd;
-    layouts.set(session.id, { geometry, lane });
+    lanes[lane].push(interval);
+    layouts.set(session.id, { interval, lane });
     const root = rootId(session.id);
     const assignedLanes = lanesByRoot.get(root) || [];
     if (!assignedLanes.includes(lane)) assignedLanes.push(lane);
     lanesByRoot.set(root, assignedLanes);
   });
+
+  // Lane assignment is based on real intervals. Only then can we decide
+  // whether a short session needs a marker based on its next session in the
+  // same lane; a session in another lane cannot visually collide with it.
+  const sessionsByLane = new Map();
+  layouts.forEach((layout, sessionId) => {
+    const laneSessions = sessionsByLane.get(layout.lane) || [];
+    laneSessions.push({ session: visibleById.get(sessionId), layout });
+    sessionsByLane.set(layout.lane, laneSessions);
+  });
+  const markerSessions = new Set();
+  sessionsByLane.forEach(laneSessions => {
+    laneSessions.sort((a, b) => {
+      const startDifference = a.layout.interval.start - b.layout.interval.start;
+      return startDifference || String(a.session.id).localeCompare(String(b.session.id));
+    });
+    for (let index = laneSessions.length - 2; index >= 0; index -= 1) {
+      const current = laneSessions[index].session;
+      if (sessionDuration(current) >= COMPACT_SESSION_THRESHOLD) continue;
+      const nextSession = laneSessions[index + 1].session;
+      const currentGeometry = barGeometry(current, date, next);
+      const nextGeometry = barGeometry(
+        nextSession,
+        date,
+        next,
+        markerSessions.has(nextSession.id),
+      );
+      if (currentGeometry.layoutEnd > nextGeometry.layoutStart) {
+        markerSessions.add(current.id);
+      }
+    }
+  });
   ordered.forEach(session => {
     const layout = layouts.get(session.id);
-    addBar(session, track, layout.lane, lanes.length || 1, layout.geometry);
+    const geometry = barGeometry(session, date, next, markerSessions.has(session.id));
+    addBar(session, track, layout.lane, lanes.length || 1, geometry);
   });
 
   body.append(track);

@@ -5,3 +5,6 @@ body.details-open main{max-width:calc(1180px + min(390px, 34vw));margin-left:aut
 .session.compact::after{content:"";position:absolute;left:0;right:0;top:6px;height:6px;border-radius:999px;background:var(--project-color,var(--accent));box-shadow:0 1px 2px #20252b33}
 .session.compact:hover,.session.compact.selected{background:transparent;filter:none}
 .session.compact:hover::after,.session.compact.selected::after{filter:brightness(.88)}
+.session.selected{border:2px solid #fff;box-shadow:0 0 0 1px var(--ink),0 1px 2px #20252b33}
+.session.compact.selected{border:0;box-shadow:none}
+.session.compact.selected::after{border:2px solid #fff;box-shadow:0 0 0 1px var(--ink),0 1px 2px #20252b33}
